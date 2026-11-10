@@ -1,0 +1,10 @@
+# Claves y datos: nunca al repositorio
+config.cfg
+marcas/
+
+# Python
+__pycache__/
+*.pyc
+*.tmp
+.venv/
+venv/
