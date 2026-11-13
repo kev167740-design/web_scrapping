@@ -43,16 +43,27 @@ def ejecutar_actor(actor_id: str, run_input: dict, max_cost: float) -> tuple[lis
             run_timeout=timedelta(minutes=minutos),
             logger=None,
         )
-    except Exception as e:  # errores de la API de Apify
-        texto = str(e)
-        bajo = texto.lower()
-        if "token" in bajo and ("invalid" in bajo or "401" in bajo or "unauthorized" in bajo):
-            fail("El token de Apify no es válido. Revisa apify_token en config.cfg.")
-        if "not found" in bajo or "404" in bajo:
-            fail(f"No se encuentra el actor '{actor_id}'. Revisa el nombre en config.cfg.")
-        if "credit" in bajo or ("usage" in bajo and "limit" in bajo) or "402" in bajo:
-            fail("Te has quedado sin crédito de Apify este mes (o se alcanzó el límite de uso).")
-        fail(f"Error al llamar a Apify: {texto}")
+    except Exception as e:  # errores de la API de Apify: se muestra el mensaje real
+        codigo = getattr(e, "status_code", None)
+        tipo = getattr(e, "type", None) or ""
+        mensaje = getattr(e, "message", None) or str(e)
+        bajo = f"{tipo} {mensaje}".lower()
+        if codigo == 401 or "token" in bajo and ("invalid" in bajo or "unauthorized" in bajo):
+            pista = "El token de Apify no es válido. Revisa apify_token en config.cfg."
+        elif codigo == 404 and "build" in bajo:
+            pista = "El actor no tiene una versión publicada utilizable. Prueba más tarde o usa otro actor."
+        elif codigo == 404:
+            pista = f"Comprueba que el actor existe y está bien escrito en config.cfg: https://apify.com/{actor_id}"
+        elif codigo == 400 or "invalid-input" in bajo or "input" in bajo and "valid" in bajo:
+            pista = "Algún parámetro de config.cfg no es válido para este actor (ver el mensaje de arriba)."
+        elif codigo in (402, 403) or "credit" in bajo or "limit" in bajo:
+            pista = ("Puede ser falta de crédito este mes, un límite de uso, o que el actor necesite "
+                     "permisos especiales (ábrelo una vez en la consola de Apify).")
+        else:
+            pista = ""
+        fail(f"Apify respondió con un error{f' (HTTP {codigo})' if codigo else ''}: {mensaje}"
+             + (f"\n   Tipo: {tipo}" if tipo else "")
+             + (f"\n   → {pista}" if pista else ""))
 
     if run is None:
         fail("Apify no devolvió información de la ejecución.")

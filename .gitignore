@@ -8,3 +8,6 @@ __pycache__/
 *.tmp
 .venv/
 venv/
+
+# Datos generados
+union*.json
